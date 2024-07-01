@@ -46,8 +46,17 @@ const AgingChart: React.FC<AgingChartProps> = ({ workItems }) => {
     svg.append('g')
       .call(d3.axisLeft(y));
 
+    const tooltip = d3.select('body').append('div')
+      .attr('class', 'tooltip')
+      .style('position', 'absolute')
+      .style('background-color', 'white')
+      .style('border', '1px solid #ddd')
+      .style('padding', '10px')
+      .style('display', 'none');
+
     statuses.forEach(status => {
       const statusItems = workItems.filter(item => item.status === status);
+      
       svg.selectAll(`.dot-${status}`)
         .data(statusItems)
         .enter().append('circle')
@@ -58,7 +67,20 @@ const AgingChart: React.FC<AgingChartProps> = ({ workItems }) => {
           return isNaN(age) ? y(0) : y(age);
         })
         .attr('r', 5)
-        .attr('fill', 'steelblue');
+        .attr('fill', 'steelblue')
+        .on('mouseover', (event, d) => {
+          tooltip.transition()
+            .duration(200)
+            .style('display', 'block');
+          tooltip.html(`Key: ${d.key}<br/>Summary: ${d.summary}`)
+            .style('left', (event.pageX + 10) + 'px')
+            .style('top', (event.pageY - 10) + 'px');
+        })
+        .on('mouseout', () => {
+          tooltip.transition()
+            .duration(500)
+            .style('display', 'none');
+        });
     });
 
   }, [workItems]);
