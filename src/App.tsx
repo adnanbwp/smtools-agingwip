@@ -1,12 +1,13 @@
-import React from 'react'
+import React from 'react';
+import FileUpload from './components/FileUpload';
 
 const App: React.FC = () => {
   return (
     <div>
-      <h1>Hello World</h1>
-      <p>Welcome to the Aging Work In Progress Chart app!</p>
+      <h1>Aging Work In Progress Chart</h1>
+      <FileUpload />
     </div>
-  )
-}
+  );
+};
 
-export default App
+export default App;
