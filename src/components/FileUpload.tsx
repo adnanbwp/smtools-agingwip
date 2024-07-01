@@ -16,6 +16,11 @@ const FileUpload: React.FC<FileUploadProps> = ({ onWorkItemsLoaded }) => {
     }
   };
 
+  const parseDate = (dateString: string): Date => {
+    const [day, month, year] = dateString.split('/').map(Number);
+    return new Date(year, month - 1, day);
+  };
+
   const parseCSV = (text: string): WorkItem[] => {
     const result = Papa.parse(text, { header: true, skipEmptyLines: true });
     return result.data.map((row: any) => ({
@@ -23,7 +28,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onWorkItemsLoaded }) => {
       summary: row['Summary'] || '',
       storyPoints: row['Story Points'] ? parseInt(row['Story Points'], 10) : undefined,
       status: row['Status'] || '',
-      inProgress: row['In Progress'] ? new Date(row['In Progress'].split('/').reverse().join('-')) : new Date(),
+      inProgress: row['In Progress'] ? parseDate(row['In Progress']) : new Date(),
     }));
   };
 

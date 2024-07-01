@@ -16,6 +16,8 @@ const AgingChart: React.FC<AgingChartProps> = ({ workItems }) => {
     const width = 800 - margin.left - margin.right;
     const height = 400 - margin.top - margin.bottom;
 
+    d3.select(chartRef.current).selectAll("*").remove();
+
     const svg = d3.select(chartRef.current)
       .attr('width', width + margin.left + margin.right)
       .attr('height', height + margin.top + margin.bottom)
@@ -30,7 +32,7 @@ const AgingChart: React.FC<AgingChartProps> = ({ workItems }) => {
 
     const maxAge = d3.max(workItems, d => {
       const age = (new Date().getTime() - d.inProgress.getTime()) / (1000 * 60 * 60 * 24);
-      return Math.ceil(age);
+      return isNaN(age) ? 0 : Math.ceil(age);
     }) || 0;
 
     const y = d3.scaleLinear()
@@ -53,7 +55,7 @@ const AgingChart: React.FC<AgingChartProps> = ({ workItems }) => {
         .attr('cx', x(status)! + x.bandwidth() / 2)
         .attr('cy', d => {
           const age = (new Date().getTime() - d.inProgress.getTime()) / (1000 * 60 * 60 * 24);
-          return y(age);
+          return isNaN(age) ? y(0) : y(age);
         })
         .attr('r', 5)
         .attr('fill', 'steelblue');
