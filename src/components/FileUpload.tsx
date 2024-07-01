@@ -1,7 +1,12 @@
 import React, { ChangeEvent, useState } from 'react';
 import { WorkItem } from '../types/WorkItem';
+import Papa from 'papaparse';
 
-const FileUpload: React.FC = () => {
+interface FileUploadProps {
+  onWorkItemsLoaded: (items: WorkItem[]) => void;
+}
+
+const FileUpload: React.FC<FileUploadProps> = ({ onWorkItemsLoaded }) => {
   const [file, setFile] = useState<File | null>(null);
   const [workItems, setWorkItems] = useState<WorkItem[]>([]);
 
@@ -12,22 +17,14 @@ const FileUpload: React.FC = () => {
   };
 
   const parseCSV = (text: string): WorkItem[] => {
-    const lines = text.split('\n');
-    const headers = lines[0].split(',');
-    return lines.slice(1).map(line => {
-      const values = line.split(',');
-      const item: WorkItem = {
-        key: values[headers.indexOf('Key')],
-        summary: values[headers.indexOf('Summary')],
-        status: values[headers.indexOf('Status')],
-        inProgress: new Date(values[headers.indexOf('In Progress')].split('/').reverse().join('-')),
-      };
-      const storyPoints = values[headers.indexOf('Story Points')];
-      if (storyPoints) {
-        item.storyPoints = parseInt(storyPoints, 10);
-      }
-      return item;
-    });
+    const result = Papa.parse(text, { header: true, skipEmptyLines: true });
+    return result.data.map((row: any) => ({
+      key: row['Key'] || '',
+      summary: row['Summary'] || '',
+      storyPoints: row['Story Points'] ? parseInt(row['Story Points'], 10) : undefined,
+      status: row['Status'] || '',
+      inProgress: row['In Progress'] ? new Date(row['In Progress'].split('/').reverse().join('-')) : new Date(),
+    }));
   };
 
   const handleUpload = () => {
@@ -35,9 +32,15 @@ const FileUpload: React.FC = () => {
       const reader = new FileReader();
       reader.onload = (e) => {
         const text = e.target?.result as string;
-        const parsedItems = parseCSV(text);
-        setWorkItems(parsedItems);
-        console.log(parsedItems); // For now, just log the parsed items
+        try {
+          const parsedItems = parseCSV(text);
+          setWorkItems(parsedItems);
+          onWorkItemsLoaded(parsedItems);
+          console.log(parsedItems); // For now, just log the parsed items
+        } catch (error) {
+          console.error('Error parsing CSV:', error);
+          alert('Error parsing CSV file. Please check the file format.');
+        }
       };
       reader.readAsText(file);
     }
