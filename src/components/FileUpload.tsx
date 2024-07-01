@@ -3,7 +3,7 @@ import { WorkItem } from '../types/WorkItem';
 import Papa from 'papaparse';
 
 interface FileUploadProps {
-  onWorkItemsLoaded: (items: WorkItem[]) => void;
+  onWorkItemsLoaded: (items: WorkItem[], filename: string) => void;
 }
 
 const FileUpload: React.FC<FileUploadProps> = ({ onWorkItemsLoaded }) => {
@@ -40,7 +40,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onWorkItemsLoaded }) => {
         try {
           const parsedItems = parseCSV(text);
           setWorkItems(parsedItems);
-          onWorkItemsLoaded(parsedItems);
+          onWorkItemsLoaded(parsedItems, file.name);
           console.log(parsedItems); // For now, just log the parsed items
         } catch (error) {
           console.error('Error parsing CSV:', error);
