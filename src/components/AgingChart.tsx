@@ -12,7 +12,7 @@ const AgingChart: React.FC<AgingChartProps> = ({ workItems }) => {
   useEffect(() => {
     if (workItems.length === 0) return;
 
-    const margin = { top: 20, right: 30, bottom: 40, left: 50 };
+    const margin = { top: 20, right: 120, bottom: 40, left: 50 };
     const width = 800 - margin.left - margin.right;
     const height = 400 - margin.top - margin.bottom;
 
@@ -30,10 +30,12 @@ const AgingChart: React.FC<AgingChartProps> = ({ workItems }) => {
       .range([0, width])
       .padding(0.1);
 
-    const maxAge = d3.max(workItems, d => {
+    const ages = workItems.map(d => {
       const age = (new Date().getTime() - d.inProgress.getTime()) / (1000 * 60 * 60 * 24);
-      return isNaN(age) ? 0 : Math.ceil(age);
-    }) || 0;
+      return isNaN(age) ? 0 : age;
+    });
+
+    const maxAge = Math.max(...ages);
 
     const y = d3.scaleLinear()
       .domain([0, maxAge])
@@ -46,7 +48,31 @@ const AgingChart: React.FC<AgingChartProps> = ({ workItems }) => {
     svg.append('g')
       .call(d3.axisLeft(y));
 
-    // Create tooltip
+    // Calculate percentiles
+    const percentiles = [50, 70, 85, 95];
+    const percentileValues = percentiles.map(p => d3.quantile(ages, p / 100) || 0);
+
+    // Add percentile lines
+    const percentileColors = ['#15547D', '#529949', '#DFB849', '#DD4C35'];
+    percentileValues.forEach((value, index) => {
+      svg.append('line')
+        .attr('x1', 0)
+        .attr('x2', width)
+        .attr('y1', y(value))
+        .attr('y2', y(value))
+        .attr('stroke', percentileColors[index])
+        .attr('stroke-dasharray', '10,5');
+
+      svg.append('text')
+        .attr('x', width + 5)
+        .attr('y', y(value))
+        .attr('dy', '0.32em')
+        .attr('fill', percentileColors[index])
+        .style('font-size', '15px')
+        .text(`${percentiles[index]}th (${value.toFixed(1)} days)`);
+    });
+
+    // Create tooltip (unchanged)
     const tooltip = d3.select('body').append('div')
       .attr('class', 'tooltip')
       .style('position', 'absolute')
