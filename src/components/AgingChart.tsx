@@ -46,13 +46,19 @@ const AgingChart: React.FC<AgingChartProps> = ({ workItems }) => {
     svg.append('g')
       .call(d3.axisLeft(y));
 
+    // Create tooltip
     const tooltip = d3.select('body').append('div')
       .attr('class', 'tooltip')
       .style('position', 'absolute')
-      .style('background-color', 'white')
+      .style('visibility', 'hidden')
+      .style('background-color', 'rgba(255, 255, 255, 0.9)')
       .style('border', '1px solid #ddd')
+      .style('border-radius', '4px')
       .style('padding', '10px')
-      .style('display', 'none');
+      .style('font-family', 'Arial, sans-serif')
+      .style('font-size', '12px')
+      .style('max-width', '250px')
+      .style('box-shadow', '0 2px 4px rgba(0,0,0,0.1)');
 
     statuses.forEach(status => {
       const statusItems = workItems.filter(item => item.status === status);
@@ -69,17 +75,21 @@ const AgingChart: React.FC<AgingChartProps> = ({ workItems }) => {
         .attr('r', 5)
         .attr('fill', 'steelblue')
         .on('mouseover', (event, d) => {
-          tooltip.transition()
-            .duration(200)
-            .style('display', 'block');
-          tooltip.html(`Key: ${d.key}<br/>Summary: ${d.summary}`)
-            .style('left', (event.pageX + 10) + 'px')
-            .style('top', (event.pageY - 10) + 'px');
+          const age = ((new Date().getTime() - d.inProgress.getTime()) / (1000 * 60 * 60 * 24)).toFixed(1);
+          
+          tooltip.html(`
+            <strong style="font-size: 14px;">${d.key}</strong><br>
+            <span style="color: #666;">${d.summary.length > 100 ? d.summary.substring(0, 100) + '...' : d.summary}</span><br>
+            <span style="color: #0066cc; font-weight: bold;">Age: ${age} days</span>
+          `)
+          .style('visibility', 'visible');
+        })
+        .on('mousemove', (event) => {
+          tooltip.style('top', (event.pageY - 10) + 'px')
+                 .style('left', (event.pageX + 10) + 'px');
         })
         .on('mouseout', () => {
-          tooltip.transition()
-            .duration(500)
-            .style('display', 'none');
+          tooltip.style('visibility', 'hidden');
         });
     });
 
