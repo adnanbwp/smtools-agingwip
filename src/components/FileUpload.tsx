@@ -1,14 +1,14 @@
 import React, { ChangeEvent, useState } from 'react';
 import { WorkItem } from '../types/WorkItem';
+import { CycleTimeItem } from '../types/CycleTimeItem';
 import Papa from 'papaparse';
 
 interface FileUploadProps {
-  onWorkItemsLoaded: (items: WorkItem[], filename: string) => void;
+  onDataLoaded: (items: WorkItem[] | CycleTimeItem[], filename: string, type: 'aging' | 'cycleTime') => void;
 }
 
-const FileUpload: React.FC<FileUploadProps> = ({ onWorkItemsLoaded }) => {
+const FileUpload: React.FC<FileUploadProps> = ({ onDataLoaded }) => {
   const [file, setFile] = useState<File | null>(null);
-  const [workItems, setWorkItems] = useState<WorkItem[]>([]);
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -21,16 +21,31 @@ const FileUpload: React.FC<FileUploadProps> = ({ onWorkItemsLoaded }) => {
     return new Date(year, month - 1, day);
   };
 
-  const parseCSV = (text: string): WorkItem[] => {
+  const parseCSV = (text: string): WorkItem[] | CycleTimeItem[] => {
     const result = Papa.parse(text, { header: true, skipEmptyLines: true });
-    return result.data.map((row: any) => ({
-      key: row['Key'] || '',
-      summary: row['Summary'] || '',
-      storyPoints: row['Story Points'] ? parseInt(row['Story Points'], 10) : undefined,
-      status: row['Status'] || '',
-      inProgress: row['In Progress'] ? parseDate(row['In Progress']) : new Date(),
-      issueType: row['Issue Type'] || 'Task', // Default to 'Task' if not specified
-    }));
+    const isCycleTimeData = 'Closed' in result.data[0];
+
+    if (isCycleTimeData) {
+      return result.data.map((row: any): CycleTimeItem => ({
+        key: row['Key'] || '',
+        summary: row['Summary'] || '',
+        storyPoints: row['Story Points'] ? parseInt(row['Story Points'], 10) : undefined,
+        issueType: row['Issue Type'] || '',
+        status: row['Status'] || '',
+        inProgress: parseDate(row['In Progress']),
+        closed: parseDate(row['Closed']),
+        cycleTime: (parseDate(row['Closed']).getTime() - parseDate(row['In Progress']).getTime()) / (1000 * 60 * 60 * 24)
+      }));
+    } else {
+      return result.data.map((row: any): WorkItem => ({
+        key: row['Key'] || '',
+        summary: row['Summary'] || '',
+        storyPoints: row['Story Points'] ? parseInt(row['Story Points'], 10) : undefined,
+        status: row['Status'] || '',
+        inProgress: parseDate(row['In Progress']),
+        issueType: row['Issue Type'] || 'Task',
+      }));
+    }
   };
 
   const handleUpload = () => {
@@ -40,9 +55,9 @@ const FileUpload: React.FC<FileUploadProps> = ({ onWorkItemsLoaded }) => {
         const text = e.target?.result as string;
         try {
           const parsedItems = parseCSV(text);
-          setWorkItems(parsedItems);
-          onWorkItemsLoaded(parsedItems, file.name);
-          console.log(parsedItems);
+          const type = 'closed' in parsedItems[0] ? 'cycleTime' : 'aging';
+          console.log("Detected file type:", type); // Add this line
+          onDataLoaded(parsedItems, file.name, type);
         } catch (error) {
           console.error('Error parsing CSV:', error);
           alert('Error parsing CSV file. Please check the file format.');
@@ -58,9 +73,6 @@ const FileUpload: React.FC<FileUploadProps> = ({ onWorkItemsLoaded }) => {
       <button onClick={handleUpload} disabled={!file}>
         Upload
       </button>
-      {workItems.length > 0 && (
-        <p>{workItems.length} work items loaded.</p>
-      )}
     </div>
   );
 };
