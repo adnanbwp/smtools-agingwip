@@ -14,15 +14,22 @@ const AgingChart: React.FC<AgingChartProps> = ({ workItems, filename }) => {
     if (workItems.length === 0) return;
 
     const margin = { top: 100, right: 120, bottom: 50, left: 60 };
-    const width = 900 - margin.left - margin.right;
-    const height = 500 - margin.top - margin.bottom;
+    const width = 1100 - margin.left - margin.right;
+    const height = 620 - margin.top - margin.bottom;
 
     d3.select(chartRef.current).selectAll("*").remove();
 
     const svg = d3.select(chartRef.current)
       .attr('width', width + margin.left + margin.right)
-      .attr('height', height + margin.top + margin.bottom)
-      .append('g')
+      .attr('height', height + margin.top + margin.bottom);
+    
+    // Add white background
+    svg.append('rect')
+      .attr('width', '100%')
+      .attr('height', '100%')
+      .attr('fill', 'white');
+
+    const g = svg.append('g')
       .attr('transform', `translate(${margin.left},${margin.top})`);
 
     // Extract date from filename and format it
@@ -33,30 +40,30 @@ const AgingChart: React.FC<AgingChartProps> = ({ workItems, filename }) => {
       formattedDate = date.toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' });
     }
 
-    // Add title and date
-    svg.append('text')
+    // Add title, date, and WIP count
+    g.append('text')
       .attr('x', width / 2)
       .attr('y', -margin.top / 2)
       .attr('text-anchor', 'middle')
       .style('font-size', '20px')
       .style('font-weight', 'bold')
-      .style('fill', 'currentColor')
+      .style('fill', 'black')
       .text('Aging Work In Progress Chart');
 
-    svg.append('text')
+    g.append('text')
       .attr('x', width / 2)
       .attr('y', -margin.top / 2 + 25)
       .attr('text-anchor', 'middle')
       .style('font-size', '14px')
-      .style('fill', 'currentColor')
+      .style('fill', 'black')
       .text(`Data as of ${formattedDate}`);
-    
-    svg.append('text')
-      .attr( 'x', width / 2)
+
+    g.append('text')
+      .attr('x', width / 2)
       .attr('y', -margin.top / 2 + 50)
       .attr('text-anchor', 'middle')
       .style('font-size', '16px')
-      .style('fill', 'currentColor')
+      .style('fill', 'black')
       .text(`WIP: ${workItems.length}`);
 
     const statuses = ['In Progress', 'In Review', 'In Test'];
@@ -77,34 +84,38 @@ const AgingChart: React.FC<AgingChartProps> = ({ workItems, filename }) => {
       .range([height, 0]);
 
     // Add styled X and Y axes
-    svg.append('g')
+    g.append('g')
       .attr('transform', `translate(0,${height})`)
       .call(d3.axisBottom(x))
       .style('font-size', '12px')
-      .call(g => g.select('.domain').attr('stroke-width', 2));
+      .call(g => g.select('.domain').attr('stroke-width', 2))
+      .selectAll('text')
+      .style('fill', 'black');
 
-    svg.append('g')
+    g.append('g')
       .call(d3.axisLeft(y))
       .style('font-size', '12px')
-      .call(g => g.select('.domain').attr('stroke-width', 2));
+      .call(g => g.select('.domain').attr('stroke-width', 2))
+      .selectAll('text')
+      .style('fill', 'black');
 
     // Add X axis label
-    svg.append('text')
+    g.append('text')
       .attr('x', width / 2)
       .attr('y', height + margin.bottom - 10)
       .attr('text-anchor', 'middle')
       .style('font-size', '14px')
-      .style('fill', 'currentColor')
+      .style('fill', 'black')
       .text('Status');
 
     // Add Y axis label
-    svg.append('text')
+    g.append('text')
       .attr('transform', 'rotate(-90)')
       .attr('x', -height / 2)
       .attr('y', -margin.left + 20)
       .attr('text-anchor', 'middle')
       .style('font-size', '14px')
-      .style('fill', 'currentColor')
+      .style('fill', 'black')
       .text('Age (days)');
 
     // Calculate percentiles
@@ -114,7 +125,7 @@ const AgingChart: React.FC<AgingChartProps> = ({ workItems, filename }) => {
     // Add percentile lines
     const percentileColors = ['#0078D4', '#33B563', '#E6B116', '#9A0900'];
     percentileValues.forEach((value, index) => {
-      svg.append('line')
+      g.append('line')
         .attr('x1', 0)
         .attr('x2', width)
         .attr('y1', y(value))
@@ -123,7 +134,7 @@ const AgingChart: React.FC<AgingChartProps> = ({ workItems, filename }) => {
         .attr('stroke-width', 2)
         .attr('stroke-dasharray', '5,5');
 
-      svg.append('text')
+      g.append('text')
         .attr('x', width + 5)
         .attr('y', y(value))
         .attr('dy', '0.32em')
@@ -151,13 +162,13 @@ const AgingChart: React.FC<AgingChartProps> = ({ workItems, filename }) => {
     const colorScale = d3.scaleOrdinal<string>()
       .domain(['Story', 'Bug', 'Task'])
       .range(['green', 'red', 'blue'])
-      .unknown('gray');  // This will assign gray to any unknown issue types
+      .unknown('gray');
 
     // Add dots
     statuses.forEach(status => {
       const statusItems = workItems.filter(item => item.status === status);
       
-      svg.selectAll(`.dot-${status}`)
+      g.selectAll(`.dot-${status}`)
         .data(statusItems)
         .enter().append('circle')
         .attr('class', `dot-${status}`)
@@ -191,7 +202,7 @@ const AgingChart: React.FC<AgingChartProps> = ({ workItems, filename }) => {
     });
 
     // Add legend
-    const legend = svg.append('g')
+    const legend = g.append('g')
       .attr('transform', `translate(${width - 100}, -60)`);
 
     ['Story', 'Bug', 'Task'].forEach((type, i) => {
@@ -207,13 +218,44 @@ const AgingChart: React.FC<AgingChartProps> = ({ workItems, filename }) => {
         .attr('y', 4)
         .text(type)
         .style('font-size', '12px')
-        .style('fill', 'currentColor')
+        .style('fill', 'black')
         .attr('alignment-baseline', 'middle');
     });
 
   }, [workItems, filename]);
 
-  return <svg ref={chartRef}></svg>;
+  const downloadChart = () => {
+    const svg = d3.select(chartRef.current);
+    const svgString = new XMLSerializer().serializeToString(svg.node()!);
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d')!;
+    
+    // Set canvas size
+    const scale = 2; // Increase this for higher resolution
+    canvas.width = 1100 * scale;
+    canvas.height = 620 * scale;
+    ctx.scale(scale, scale);
+
+    const img = new Image();
+    img.onload = () => {
+      ctx.fillStyle = 'white';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0, 1100, 620);
+      const pngFile = canvas.toDataURL("image/png");
+      const downloadLink = document.createElement("a");
+      downloadLink.download = `AgingWIPChart_${filename.replace('.csv', '')}.png`;
+      downloadLink.href = pngFile;
+      downloadLink.click();
+    };
+    img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgString)));
+  };
+
+  return (
+    <div>
+      <svg ref={chartRef}></svg>
+      <button onClick={downloadChart} style={{marginTop: '10px'}}>Download Chart</button>
+    </div>
+  );
 };
 
 export default AgingChart;
