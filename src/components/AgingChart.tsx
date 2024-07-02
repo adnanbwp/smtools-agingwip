@@ -13,7 +13,7 @@ const AgingChart: React.FC<AgingChartProps> = ({ workItems, filename }) => {
   useEffect(() => {
     if (workItems.length === 0) return;
 
-    const margin = { top: 80, right: 120, bottom: 50, left: 60 };
+    const margin = { top: 100, right: 120, bottom: 50, left: 60 };
     const width = 900 - margin.left - margin.right;
     const height = 500 - margin.top - margin.bottom;
 
@@ -45,11 +45,19 @@ const AgingChart: React.FC<AgingChartProps> = ({ workItems, filename }) => {
 
     svg.append('text')
       .attr('x', width / 2)
-      .attr('y', -margin.top / 2 + 20)
+      .attr('y', -margin.top / 2 + 25)
       .attr('text-anchor', 'middle')
       .style('font-size', '14px')
       .style('fill', 'currentColor')
       .text(`Data as of ${formattedDate}`);
+    
+    svg.append('text')
+      .attr( 'x', width / 2)
+      .attr('y', -margin.top / 2 + 50)
+      .attr('text-anchor', 'middle')
+      .style('font-size', '16px')
+      .style('fill', 'currentColor')
+      .text(`WIP: ${workItems.length}`);
 
     const statuses = ['In Progress', 'In Review', 'In Test'];
     const x = d3.scaleBand()

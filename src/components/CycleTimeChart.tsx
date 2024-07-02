@@ -13,7 +13,7 @@ const CycleTimeChart: React.FC<CycleTimeChartProps> = ({ cycleTimeItems, filenam
   useEffect(() => {
     if (cycleTimeItems.length === 0) return;
 
-    const margin = { top: 80, right: 120, bottom: 50, left: 60 };
+    const margin = { top: 100, right: 120, bottom: 50, left: 60 };
     const width = 900 - margin.left - margin.right;
     const height = 500 - margin.top - margin.bottom;
 
@@ -33,13 +33,14 @@ const CycleTimeChart: React.FC<CycleTimeChartProps> = ({ cycleTimeItems, filenam
       formattedDate = date.toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' });
     }
 
-    // Add title and date
+    // Add title, date and throughput
     svg.append('text')
       .attr('x', width / 2)
       .attr('y', -margin.top / 2)
       .attr('text-anchor', 'middle')
       .style('font-size', '20px')
       .style('font-weight', 'bold')
+      .style('fill', 'currentColor')
       .text('Cycle Time Scatterplot');
 
     svg.append('text')
@@ -47,7 +48,16 @@ const CycleTimeChart: React.FC<CycleTimeChartProps> = ({ cycleTimeItems, filenam
       .attr('y', -margin.top / 2 + 20)
       .attr('text-anchor', 'middle')
       .style('font-size', '14px')
+      .style('fill', 'currentColor')
       .text(`Data as of ${formattedDate}`);
+
+    svg.append('text')
+      .attr('x', width /2)
+      .attr('y', -margin.top / 2 + 50)
+      .attr('text-anchor', 'middle')
+      .style('font-size', '16px')
+      .style('fill', 'currentColor')
+      .text(`Throughput: ${cycleTimeItems.length}`);
 
     // Set up scales
     const x = d3.scaleTime()
@@ -71,6 +81,7 @@ const CycleTimeChart: React.FC<CycleTimeChartProps> = ({ cycleTimeItems, filenam
       .attr('x', width / 2)
       .attr('y', height + margin.bottom - 10)
       .attr('text-anchor', 'middle')
+      .style('fill', 'currentColor')
       .text('Completion Date');
 
     svg.append('text')
@@ -78,6 +89,7 @@ const CycleTimeChart: React.FC<CycleTimeChartProps> = ({ cycleTimeItems, filenam
       .attr('x', -height / 2)
       .attr('y', -margin.left + 20)
       .attr('text-anchor', 'middle')
+      .style('fill', 'currentColor')
       .text('Cycle Time (days)');
 
     // Calculate percentiles
