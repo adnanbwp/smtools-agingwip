@@ -142,7 +142,8 @@ const AgingChart: React.FC<AgingChartProps> = ({ workItems, filename }) => {
     // Color scale for issue types
     const colorScale = d3.scaleOrdinal<string>()
       .domain(['Story', 'Bug', 'Task'])
-      .range(['green', 'red', 'blue']);
+      .range(['green', 'red', 'blue'])
+      .unknown('gray');  // This will assign gray to any unknown issue types
 
     // Add dots
     statuses.forEach(status => {

@@ -7,6 +7,16 @@
 //   onDataLoaded: (items: WorkItem[] | CycleTimeItem[], filename: string, type: 'aging' | 'cycleTime') => void;
 // }
 
+// interface CSVRow {
+//   Key: string;
+//   Summary: string;
+//   'Story Points': string;
+//   'Issue Type': string;
+//   Status: string;
+//   'In Progress': string;
+//   Closed?: string;
+// }
+
 // const FileUpload: React.FC<FileUploadProps> = ({ onDataLoaded }) => {
 //   const [file, setFile] = useState<File | null>(null);
 
@@ -22,28 +32,28 @@
 //   };
 
 //   const parseCSV = (text: string): WorkItem[] | CycleTimeItem[] => {
-//     const result = Papa.parse(text, { header: true, skipEmptyLines: true });
-//     const isCycleTimeData = 'Closed' in result.data[0];
+//     const result = Papa.parse<CSVRow>(text, { header: true, skipEmptyLines: true });
+//     const isCycleTimeData = result.data[0] && 'Closed' in result.data[0];
 
 //     if (isCycleTimeData) {
-//       return result.data.map((row: any): CycleTimeItem => ({
-//         key: row['Key'] || '',
-//         summary: row['Summary'] || '',
+//       return result.data.map((row): CycleTimeItem => ({
+//         key: row['Key'],
+//         summary: row['Summary'],
 //         storyPoints: row['Story Points'] ? parseInt(row['Story Points'], 10) : undefined,
-//         issueType: row['Issue Type'] || '',
-//         status: row['Status'] || '',
+//         issueType: row['Issue Type'],
+//         status: row['Status'],
 //         inProgress: parseDate(row['In Progress']),
-//         closed: parseDate(row['Closed']),
-//         cycleTime: (parseDate(row['Closed']).getTime() - parseDate(row['In Progress']).getTime()) / (1000 * 60 * 60 * 24)
+//         closed: parseDate(row['Closed'] || ''),
+//         cycleTime: (parseDate(row['Closed'] || '').getTime() - parseDate(row['In Progress']).getTime()) / (1000 * 60 * 60 * 24)
 //       }));
 //     } else {
-//       return result.data.map((row: any): WorkItem => ({
-//         key: row['Key'] || '',
-//         summary: row['Summary'] || '',
+//       return result.data.map((row): WorkItem => ({
+//         key: row['Key'],
+//         summary: row['Summary'],
 //         storyPoints: row['Story Points'] ? parseInt(row['Story Points'], 10) : undefined,
-//         status: row['Status'] || '',
+//         status: row['Status'],
 //         inProgress: parseDate(row['In Progress']),
-//         issueType: row['Issue Type'] || 'Task',
+//         issueType: row['Issue Type'],
 //       }));
 //     }
 //   };
@@ -56,7 +66,7 @@
 //         try {
 //           const parsedItems = parseCSV(text);
 //           const type = 'closed' in parsedItems[0] ? 'cycleTime' : 'aging';
-//           console.log("Detected file type:", type); // Add this line
+//           console.log("Detected file type:", type);
 //           onDataLoaded(parsedItems, file.name, type);
 //         } catch (error) {
 //           console.error('Error parsing CSV:', error);

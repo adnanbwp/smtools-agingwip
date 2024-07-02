@@ -109,7 +109,8 @@ const CycleTimeChart: React.FC<CycleTimeChartProps> = ({ cycleTimeItems, filenam
     // Color scale for issue types
     const colorScale = d3.scaleOrdinal<string>()
       .domain(['Story', 'Bug', 'Task'])
-      .range(['green', 'red', 'blue']);
+      .range(['green', 'red', 'blue'])
+      .unknown('gray');  // This will assign gray to any unknown issue types
 
     // Create tooltip
     const tooltip = d3.select('body').append('div')
