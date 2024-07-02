@@ -139,6 +139,11 @@ const AgingChart: React.FC<AgingChartProps> = ({ workItems, filename }) => {
       .style('max-width', '250px')
       .style('box-shadow', '0 2px 4px rgba(0,0,0,0.1)');
 
+    // Color scale for issue types
+    const colorScale = d3.scaleOrdinal<string>()
+      .domain(['Story', 'Bug', 'Task'])
+      .range(['green', 'red', 'blue']);
+
     // Add dots
     statuses.forEach(status => {
       const statusItems = workItems.filter(item => item.status === status);
@@ -153,7 +158,7 @@ const AgingChart: React.FC<AgingChartProps> = ({ workItems, filename }) => {
           return isNaN(age) ? y(0) : y(age);
         })
         .attr('r', 6)
-        .attr('fill', 'steelblue')
+        .attr('fill', d => colorScale(d.issueType))
         .attr('stroke', '#fff')
         .attr('stroke-width', 1.5)
         .on('mouseover', (event, d) => {
@@ -162,7 +167,8 @@ const AgingChart: React.FC<AgingChartProps> = ({ workItems, filename }) => {
           tooltip.html(`
             <strong style="font-size: 14px;">${d.key}</strong><br>
             <span style="color: #666;">${d.summary.length > 100 ? d.summary.substring(0, 100) + '...' : d.summary}</span><br>
-            <span style="color: #0066cc; font-weight: bold;">Age: ${age} days</span>
+            <span style="color: #0066cc; font-weight: bold;">Age: ${age} days</span><br>
+            <span style="color: ${colorScale(d.issueType)};">${d.issueType}</span>
           `)
           .style('visibility', 'visible');
         })
@@ -173,6 +179,27 @@ const AgingChart: React.FC<AgingChartProps> = ({ workItems, filename }) => {
         .on('mouseout', () => {
           tooltip.style('visibility', 'hidden');
         });
+    });
+
+    // Add legend
+    const legend = svg.append('g')
+      .attr('transform', `translate(${width - 100}, -60)`);
+
+    ['Story', 'Bug', 'Task'].forEach((type, i) => {
+      const legendItem = legend.append('g')
+        .attr('transform', `translate(0, ${i * 20})`);
+
+      legendItem.append('circle')
+        .attr('r', 6)
+        .attr('fill', colorScale(type));
+
+      legendItem.append('text')
+        .attr('x', 10)
+        .attr('y', 4)
+        .text(type)
+        .style('font-size', '12px')
+        .style('fill', 'currentColor')
+        .attr('alignment-baseline', 'middle');
     });
 
   }, [workItems, filename]);

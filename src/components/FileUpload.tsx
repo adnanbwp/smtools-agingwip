@@ -29,6 +29,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onWorkItemsLoaded }) => {
       storyPoints: row['Story Points'] ? parseInt(row['Story Points'], 10) : undefined,
       status: row['Status'] || '',
       inProgress: row['In Progress'] ? parseDate(row['In Progress']) : new Date(),
+      issueType: row['Issue Type'] || 'Task', // Default to 'Task' if not specified
     }));
   };
 
@@ -41,7 +42,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onWorkItemsLoaded }) => {
           const parsedItems = parseCSV(text);
           setWorkItems(parsedItems);
           onWorkItemsLoaded(parsedItems, file.name);
-          console.log(parsedItems); // For now, just log the parsed items
+          console.log(parsedItems);
         } catch (error) {
           console.error('Error parsing CSV:', error);
           alert('Error parsing CSV file. Please check the file format.');
