@@ -4,4 +4,5 @@ export interface WorkItem {
   storyPoints?: number;
   status: string;
   inProgress: Date;
+  issueType: 'Story' | 'Bug' | 'Task';
 }

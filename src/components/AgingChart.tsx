@@ -198,7 +198,6 @@ const AgingChart: React.FC<AgingChartProps> = ({ workItems, filename }) => {
         .attr('y', 4)
         .text(type)
         .style('font-size', '12px')
-        .style('fill', 'currentColor')
         .attr('alignment-baseline', 'middle');
     });
 
