@@ -9,7 +9,7 @@ interface CycleTimeChartProps {
 
 const CycleTimeChart: React.FC<CycleTimeChartProps> = ({ cycleTimeItems, filename }) => {
   const chartRef = useRef<SVGSVGElement | null>(null);
-  const [selectedIssueTypes, setSelectedIssueTypes] = useState<string[]>(['Story']);
+  const [selectedIssueTypes, setSelectedIssueTypes] = useState<string[]>(['Story', 'Bug', 'Task']);
 
   useEffect(() => {
     if (cycleTimeItems.length === 0) return;
@@ -17,8 +17,18 @@ const CycleTimeChart: React.FC<CycleTimeChartProps> = ({ cycleTimeItems, filenam
   }, [cycleTimeItems, filename, selectedIssueTypes]);
 
   const renderChart = () => {
-    // We no longer need to filter out items with cycleTime >= 0
-    const filteredItems = cycleTimeItems.filter(item => selectedIssueTypes.includes(item.issueType));
+    const filteredItems = cycleTimeItems.filter(item => 
+      selectedIssueTypes.includes(item.issueType) &&
+      item.cycleTime >= 1 &&
+      !isNaN(item.cycleTime) &&
+      item.inProgress instanceof Date &&
+      item.closed instanceof Date
+    );
+
+    if (filteredItems.length === 0) {
+      console.log("No valid items to display");
+      return;
+    }
 
     const margin = { top: 100, right: 120, bottom: 50, left: 60 };
     const width = 1100 - margin.left - margin.right;
@@ -235,12 +245,12 @@ const CycleTimeChart: React.FC<CycleTimeChartProps> = ({ cycleTimeItems, filenam
           newSelection = newSelection.filter(type => type !== d);
         }
 
-        if (newSelection.length === 0) {
+        // Allow at least one type to be selected
+        if (newSelection.length > 0) {
+          setSelectedIssueTypes(newSelection);
+        } else {
           (event.target as HTMLInputElement).checked = true;
-          return;
         }
-
-        setSelectedIssueTypes(newSelection);
       });
 
     checkboxes.append('span')
