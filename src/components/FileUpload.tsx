@@ -36,16 +36,21 @@ const FileUpload: React.FC<FileUploadProps> = ({ onDataLoaded }) => {
     const isCycleTimeData = result.data[0] && 'Closed' in result.data[0];
 
     if (isCycleTimeData) {
-      return result.data.map((row): CycleTimeItem => ({
-        key: row['Key'],
-        summary: row['Summary'],
-        storyPoints: row['Story Points'] ? parseInt(row['Story Points'], 10) : undefined,
-        issueType: row['Issue Type'],
-        status: row['Status'],
-        inProgress: parseDate(row['In Progress']),
-        closed: parseDate(row['Closed'] || ''),
-        cycleTime: (parseDate(row['Closed'] || '').getTime() - parseDate(row['In Progress']).getTime()) / (1000 * 60 * 60 * 24)
-      }));
+      return result.data.map((row): CycleTimeItem => {
+        const inProgress = parseDate(row['In Progress']);
+        const closed = parseDate(row['Closed'] || '');
+        const cycleTime = Math.max(1, (closed.getTime() - inProgress.getTime()) / (1000 * 60 * 60 * 24));
+        return {
+          key: row['Key'],
+          summary: row['Summary'],
+          storyPoints: row['Story Points'] ? parseInt(row['Story Points'], 10) : undefined,
+          issueType: row['Issue Type'],
+          status: row['Status'],
+          inProgress,
+          closed,
+          cycleTime
+        };
+      });
     } else {
       return result.data.map((row): WorkItem => ({
         key: row['Key'],

@@ -17,7 +17,8 @@ const CycleTimeChart: React.FC<CycleTimeChartProps> = ({ cycleTimeItems, filenam
   }, [cycleTimeItems, filename, selectedIssueTypes]);
 
   const renderChart = () => {
-    const filteredItems = cycleTimeItems.filter(item => selectedIssueTypes.includes(item.issueType) && item.cycleTime >= 0);
+    // We no longer need to filter out items with cycleTime >= 0
+    const filteredItems = cycleTimeItems.filter(item => selectedIssueTypes.includes(item.issueType));
 
     const margin = { top: 100, right: 120, bottom: 50, left: 60 };
     const width = 1100 - margin.left - margin.right;
