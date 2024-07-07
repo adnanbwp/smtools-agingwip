@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { WorkItem } from '../types/WorkItem';
 import { CycleTimeItem } from '../types/CycleTimeItem';
 import AgingChartStandup from './AgingChartStandup';
@@ -18,6 +18,7 @@ const StandupView: React.FC<StandupViewProps> = ({ initialAgingWorkItems, initia
   const [cycleTimeFilename, setCycleTimeFilename] = useState<string>(initialFilename);
   const [selectedPercentiles, setSelectedPercentiles] = useState<number[]>([50, 70, 85, 95]);
   const [selectedIssueTypes, setSelectedIssueTypes] = useState<string[]>(['Story', 'Bug', 'Task']);
+  const [percentileValues, setPercentileValues] = useState<number[]>([]);
 
   const handleAgingDataLoaded = (items: WorkItem[], name: string) => {
     setAgingWorkItems(items);
@@ -47,30 +48,36 @@ const StandupView: React.FC<StandupViewProps> = ({ initialAgingWorkItems, initia
 
   const calculatePercentileValues = () => {
     if (cycleTimeItems.length > 0) {
-      const cycleTimes = cycleTimeItems.map(item => item.cycleTime).sort((a, b) => a - b);
+      const filteredItems = cycleTimeItems.filter(item => selectedIssueTypes.includes(item.issueType));
+      const cycleTimes = filteredItems.map(item => item.cycleTime).sort((a, b) => a - b);
       return selectedPercentiles.map(percentile => {
         const index = Math.floor((percentile / 100) * cycleTimes.length);
-        return cycleTimes[index];
+        return cycleTimes[index] || 0;
       });
     } else if (agingWorkItems.length > 0) {
-      const ages = agingWorkItems.map(item => {
+      const filteredItems = agingWorkItems.filter(item => selectedIssueTypes.includes(item.issueType));
+      const ages = filteredItems.map(item => {
         const age = (new Date().getTime() - item.inProgress.getTime()) / (1000 * 60 * 60 * 24);
         return isNaN(age) ? 0 : age;
       }).sort((a, b) => a - b);
       return selectedPercentiles.map(percentile => {
         const index = Math.floor((percentile / 100) * ages.length);
-        return ages[index];
+        return ages[index] || 0;
       });
     }
     return [];
   };
 
-  const percentileValues = calculatePercentileValues();
+  useEffect(() => {
+    const newPercentileValues = calculatePercentileValues();
+    setPercentileValues(newPercentileValues);
+  }, [cycleTimeItems, agingWorkItems, selectedIssueTypes, selectedPercentiles]);
 
   return (
     <div style={{ display: 'flex', height: '100vh', padding: '20px' }}>
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
         <div style={{ flex: 2, marginBottom: '20px', border: '1px solid #ccc' }}>
+          <h2>Aging Work In Progress Chart</h2>
           <AgingChartStandup 
             workItems={agingWorkItems} 
             filename={agingFilename} 
@@ -80,6 +87,7 @@ const StandupView: React.FC<StandupViewProps> = ({ initialAgingWorkItems, initia
           />
         </div>
         <div style={{ flex: 1, border: '1px solid #ccc' }}>
+          <h2>Cycle Time Scatterplot</h2>
           <CycleTimeChartStandup 
             cycleTimeItems={cycleTimeItems} 
             filename={cycleTimeFilename}
@@ -89,7 +97,7 @@ const StandupView: React.FC<StandupViewProps> = ({ initialAgingWorkItems, initia
           />
         </div>
       </div>
-      <div style={{ width: '300px', marginLeft: '20px', border: '0px solid #ccc', padding: '10px' }}>
+      <div style={{ width: '300px', marginLeft: '20px', border: '1px solid #ccc', padding: '10px' }}>
         <h2>Control Panel</h2>
         <div style={{ 
           display: 'flex', 
