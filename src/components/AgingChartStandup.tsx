@@ -6,16 +6,17 @@ interface AgingChartProps {
   workItems: WorkItem[];
   filename: string;
   selectedPercentiles: number[];
+  percentileValues: number[];
   selectedIssueTypes: string[];
 }
 
-const AgingChart: React.FC<AgingChartProps> = ({ workItems, filename, selectedPercentiles, selectedIssueTypes }) => {
+const AgingChart: React.FC<AgingChartProps> = ({ workItems, filename, selectedPercentiles, percentileValues, selectedIssueTypes }) => {
   const chartRef = useRef<SVGSVGElement | null>(null);
 
   useEffect(() => {
     if (workItems.length === 0) return;
     renderChart();
-  }, [workItems, filename, selectedPercentiles, selectedIssueTypes]);
+  }, [workItems, filename, selectedPercentiles, percentileValues, selectedIssueTypes]);
 
   const renderChart = () => {
     const filteredItems = workItems.filter(item => selectedIssueTypes.includes(item.issueType));
@@ -121,24 +122,26 @@ const AgingChart: React.FC<AgingChartProps> = ({ workItems, filename, selectedPe
 
     const percentileColors = ['#0078D4', '#33B563', '#E6B116', '#9A0900'];
     selectedPercentiles.forEach((percentile, index) => {
-      const value = d3.quantile(ages, percentile / 100) || 0;
-      g.append('line')
-        .attr('x1', 0)
-        .attr('x2', width)
-        .attr('y1', y(value))
-        .attr('y2', y(value))
-        .attr('stroke', percentileColors[index % percentileColors.length])
-        .attr('stroke-width', 2)
-        .attr('stroke-dasharray', '5,5');
+      const value = percentileValues[index];
+      if (value !== undefined) {
+        g.append('line')
+          .attr('x1', 0)
+          .attr('x2', width)
+          .attr('y1', y(value))
+          .attr('y2', y(value))
+          .attr('stroke', percentileColors[index % percentileColors.length])
+          .attr('stroke-width', 2)
+          .attr('stroke-dasharray', '5,5');
 
-      g.append('text')
-        .attr('x', width + 5)
-        .attr('y', y(value))
-        .attr('dy', '0.32em')
-        .attr('fill', percentileColors[index % percentileColors.length])
-        .style('font-size', '12px')
-        .style('font-weight', 'bold')
-        .text(`${percentile}th (${value.toFixed(1)} days)`);
+        g.append('text')
+          .attr('x', width + 5)
+          .attr('y', y(value))
+          .attr('dy', '0.32em')
+          .attr('fill', percentileColors[index % percentileColors.length])
+          .style('font-size', '12px')
+          .style('font-weight', 'bold')
+          .text(`${percentile}th (${value.toFixed(1)} days)`);
+      }
     });
 
     const tooltip = d3.select('body').append('div')
