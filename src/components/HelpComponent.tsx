@@ -126,7 +126,7 @@ export const HelpComponent: React.FC = () => {
           cursor: 'pointer'
         }}
       >
-        ?
+        Help
       </button>
       {isOpen && (
         <div style={{
