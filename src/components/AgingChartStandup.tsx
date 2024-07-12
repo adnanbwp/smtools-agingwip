@@ -2,26 +2,32 @@ import React, { useEffect, useRef } from 'react';
 import * as d3 from 'd3';
 import { WorkItem } from '../types/WorkItem';
 
-interface AgingChartProps {
+interface AgingChartStandupProps {
   workItems: WorkItem[];
   filename: string;
+  selectedIssueTypes: string[];
   selectedPercentiles: number[];
   percentileValues: number[];
-  selectedIssueTypes: string[];
+  issueTypeColors: { [key: string]: string };
 }
 
-const AgingChart: React.FC<AgingChartProps> = ({ workItems, filename, selectedPercentiles, percentileValues, selectedIssueTypes }) => {
+const AgingChartStandup: React.FC<AgingChartStandupProps> = ({ 
+  workItems, 
+  filename, 
+  selectedIssueTypes,
+  selectedPercentiles,
+  percentileValues,
+  issueTypeColors
+}) => {
   const chartRef = useRef<SVGSVGElement | null>(null);
 
   useEffect(() => {
     if (workItems.length === 0) return;
     renderChart();
-  }, [workItems, filename, selectedPercentiles, percentileValues, selectedIssueTypes]);
+  }, [workItems, filename, selectedIssueTypes, selectedPercentiles, percentileValues]);
 
   const renderChart = () => {
-    const filteredItems = workItems.filter(item => selectedIssueTypes.includes(item.issueType));
-
-    const margin = { top: 100, right: 120, bottom: 50, left: 60 };
+    const margin = { top: 60, right: 120, bottom: 50, left: 60 };
     const width = 1100 - margin.left - margin.right;
     const height = 620 - margin.top - margin.bottom;
 
@@ -31,45 +37,40 @@ const AgingChart: React.FC<AgingChartProps> = ({ workItems, filename, selectedPe
       .attr('width', width + margin.left + margin.right)
       .attr('height', height + margin.top + margin.bottom);
     
-    svg.append('rect')
-      .attr('width', '100%')
-      .attr('height', '100%')
-      .attr('fill', 'white');
-
     const g = svg.append('g')
       .attr('transform', `translate(${margin.left},${margin.top})`);
 
-    const dateMatch = filename.match(/\d{8}/);
-    let formattedDate = 'Unknown Date';
-    if (dateMatch) {
-      const date = new Date(dateMatch[0].replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3'));
-      formattedDate = date.toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' });
-    }
-
+    // Add title
     g.append('text')
       .attr('x', width / 2)
       .attr('y', -margin.top / 2)
       .attr('text-anchor', 'middle')
-      .style('font-size', '20px')
+      .style('font-size', '16px')
       .style('font-weight', 'bold')
       .style('fill', 'black')
       .text('Aging Work In Progress Chart');
 
+    // Add date
+    const dateMatch = filename.match(/\d{8}/);
+    if (dateMatch) {
+      const date = new Date(dateMatch[0].replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3'));
+      g.append('text')
+        .attr('x', width / 2)
+        .attr('y', -margin.top / 2 + 20)
+        .attr('text-anchor', 'middle')
+        .style('font-size', '14px')
+        .style('fill', 'black')
+        .text(`Data as of ${date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`);
+    }
+
+    // Add WIP count
     g.append('text')
       .attr('x', width / 2)
-      .attr('y', -margin.top / 2 + 25)
+      .attr('y', -margin.top / 2 + 40)
       .attr('text-anchor', 'middle')
       .style('font-size', '14px')
       .style('fill', 'black')
-      .text(`Data as of ${formattedDate}`);
-
-    g.append('text')
-      .attr('x', width / 2)
-      .attr('y', -margin.top / 2 + 50)
-      .attr('text-anchor', 'middle')
-      .style('font-size', '16px')
-      .style('fill', 'black')
-      .text(`WIP: ${filteredItems.length}`);
+      .text(`WIP: ${workItems.length}`);
 
     const statuses = ['In Progress', 'In Review', 'In Test'];
     const x = d3.scaleBand()
@@ -77,73 +78,44 @@ const AgingChart: React.FC<AgingChartProps> = ({ workItems, filename, selectedPe
       .range([0, width])
       .padding(0.1);
 
-    const ages = filteredItems.map(d => {
+    const ages = workItems.map(d => {
       const age = (new Date().getTime() - d.inProgress.getTime()) / (1000 * 60 * 60 * 24);
       return isNaN(age) ? 0 : age;
     });
 
-    const maxAge = Math.max(...ages);
-
     const y = d3.scaleLinear()
-      .domain([0, maxAge])
+      .domain([0, d3.max(ages) || 0])
       .range([height, 0]);
 
     g.append('g')
       .attr('transform', `translate(0,${height})`)
-      .call(d3.axisBottom(x))
-      .style('font-size', '12px')
-      .call(g => g.select('.domain').attr('stroke-width', 2))
-      .selectAll('text')
-      .style('fill', 'black');
+      .call(d3.axisBottom(x));
 
     g.append('g')
-      .call(d3.axisLeft(y))
-      .style('font-size', '12px')
-      .call(g => g.select('.domain').attr('stroke-width', 2))
-      .selectAll('text')
-      .style('fill', 'black');
-
-    g.append('text')
-      .attr('x', width / 2)
-      .attr('y', height + margin.bottom - 10)
-      .attr('text-anchor', 'middle')
-      .style('font-size', '14px')
-      .style('fill', 'black')
-      .text('Status');
-
-    g.append('text')
-      .attr('transform', 'rotate(-90)')
-      .attr('x', -height / 2)
-      .attr('y', -margin.left + 20)
-      .attr('text-anchor', 'middle')
-      .style('font-size', '14px')
-      .style('fill', 'black')
-      .text('Age (days)');
+      .call(d3.axisLeft(y).tickFormat(d => `${d}d`));
 
     const percentileColors = ['#0078D4', '#33B563', '#E6B116', '#9A0900'];
     selectedPercentiles.forEach((percentile, index) => {
       const value = percentileValues[index];
-      if (value !== undefined) {
-        g.append('line')
-          .attr('x1', 0)
-          .attr('x2', width)
-          .attr('y1', y(value))
-          .attr('y2', y(value))
-          .attr('stroke', percentileColors[index % percentileColors.length])
-          .attr('stroke-width', 2)
-          .attr('stroke-dasharray', '5,5');
+      g.append('line')
+        .attr('x1', 0)
+        .attr('x2', width)
+        .attr('y1', y(value))
+        .attr('y2', y(value))
+        .attr('stroke', percentileColors[index % percentileColors.length])
+        .attr('stroke-width', 2)
+        .attr('stroke-dasharray', '5,5');
 
-        g.append('text')
-          .attr('x', width + 5)
-          .attr('y', y(value))
-          .attr('dy', '0.32em')
-          .attr('fill', percentileColors[index % percentileColors.length])
-          .style('font-size', '12px')
-          .style('font-weight', 'bold')
-          .text(`${percentile}th (${value.toFixed(1)} days)`);
-      }
+      g.append('text')
+        .attr('x', width + 5)
+        .attr('y', y(value))
+        .attr('dy', '0.32em')
+        .attr('fill', percentileColors[index % percentileColors.length])
+        .style('font-size', '12px')
+        .text(`${percentile}th (${value.toFixed(1)}d)`);
     });
 
+    // Create tooltip
     const tooltip = d3.select('body').append('div')
       .attr('class', 'tooltip')
       .style('position', 'absolute')
@@ -157,13 +129,8 @@ const AgingChart: React.FC<AgingChartProps> = ({ workItems, filename, selectedPe
       .style('max-width', '250px')
       .style('box-shadow', '0 2px 4px rgba(0,0,0,0.1)');
 
-    const colorScale = d3.scaleOrdinal<string>()
-      .domain(['Story', 'Bug', 'Task'])
-      .range(['green', 'red', 'blue'])
-      .unknown('gray');
-
     statuses.forEach(status => {
-      const statusItems = filteredItems.filter(item => item.status === status);
+      const statusItems = workItems.filter(item => item.Status === status);
       
       g.selectAll(`.dot-${status}`)
         .data(statusItems)
@@ -174,18 +141,18 @@ const AgingChart: React.FC<AgingChartProps> = ({ workItems, filename, selectedPe
           const age = (new Date().getTime() - d.inProgress.getTime()) / (1000 * 60 * 60 * 24);
           return isNaN(age) ? y(0) : y(age);
         })
-        .attr('r', 6)
-        .attr('fill', d => colorScale(d.issueType))
+        .attr('r', 5)
+        .attr('fill', d => issueTypeColors[d['Issue Type']])
         .attr('stroke', '#fff')
-        .attr('stroke-width', 1.5)
+        .attr('stroke-width', 1)
         .on('mouseover', (event, d) => {
           const age = ((new Date().getTime() - d.inProgress.getTime()) / (1000 * 60 * 60 * 24)).toFixed(1);
           
           tooltip.html(`
-            <strong style="font-size: 14px;">${d.key}</strong><br>
-            <span style="color: #666;">${d.summary.length > 100 ? d.summary.substring(0, 100) + '...' : d.summary}</span><br>
+            <strong style="font-size: 14px;">${d.Key}</strong><br>
+            <span style="color: #666;">${d.Summary.length > 100 ? d.Summary.substring(0, 100) + '...' : d.Summary}</span><br>
             <span style="color: #0066cc; font-weight: bold;">Age: ${age} days</span><br>
-            <span style="color: ${colorScale(d.issueType)};">${d.issueType}</span>
+            <span style="color: ${issueTypeColors[d['Issue Type']]};">${d['Issue Type']}</span>
           `)
           .style('visibility', 'visible');
         })
@@ -197,26 +164,6 @@ const AgingChart: React.FC<AgingChartProps> = ({ workItems, filename, selectedPe
           tooltip.style('visibility', 'hidden');
         });
     });
-
-    const legend = g.append('g')
-      .attr('transform', `translate(${width - 100}, -60)`);
-
-    ['Story', 'Bug', 'Task'].forEach((type, i) => {
-      const legendItem = legend.append('g')
-        .attr('transform', `translate(0, ${i * 20})`);
-
-      legendItem.append('circle')
-        .attr('r', 6)
-        .attr('fill', colorScale(type));
-
-      legendItem.append('text')
-        .attr('x', 10)
-        .attr('y', 4)
-        .text(type)
-        .style('font-size', '12px')
-        .style('fill', 'black')
-        .attr('alignment-baseline', 'middle');
-    });
   };
 
   return (
@@ -226,4 +173,4 @@ const AgingChart: React.FC<AgingChartProps> = ({ workItems, filename, selectedPe
   );
 };
 
-export default AgingChart;
+export default AgingChartStandup;

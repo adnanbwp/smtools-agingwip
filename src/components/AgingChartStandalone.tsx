@@ -2,22 +2,38 @@ import React, { useEffect, useRef, useState } from 'react';
 import * as d3 from 'd3';
 import { WorkItem } from '../types/WorkItem';
 
-interface AgingChartProps {
+interface AgingChartStandaloneProps {
   workItems: WorkItem[];
   filename: string;
 }
 
-const AgingChart: React.FC<AgingChartProps> = ({ workItems, filename }) => {
+const AgingChartStandalone: React.FC<AgingChartStandaloneProps> = ({ workItems, filename }) => {
+  console.log('AgingChartStandalone rendered with', workItems.length, 'work items');
   const chartRef = useRef<SVGSVGElement | null>(null);
   const [selectedIssueTypes, setSelectedIssueTypes] = useState<string[]>(['Story', 'Bug']);
 
   useEffect(() => {
-    if (workItems.length === 0) return;
+    console.log('AgingChartStandalone useEffect triggered');
+    console.log('workItems:', workItems);
+    console.log('filename:', filename);
+    console.log('Unique issue types:', [...new Set(workItems.map(item => item['Issue Type']))]);
+
+    if (workItems.length === 0) {
+      console.log('No work items to display');
+      return;
+    }
     renderChart();
   }, [workItems, filename, selectedIssueTypes]);
 
   const renderChart = () => {
-    const filteredItems = workItems.filter(item => selectedIssueTypes.includes(item.issueType));
+    console.log('Rendering chart');
+    const filteredItems = workItems.filter(item => selectedIssueTypes.includes(item['Issue Type']));
+    console.log('Filtered items:', filteredItems);
+
+    if (filteredItems.length === 0) {
+      console.log('No items to display after filtering');
+      return;
+    }
 
     const margin = { top: 100, right: 120, bottom: 50, left: 60 };
     const width = 1100 - margin.left - margin.right;
@@ -79,6 +95,8 @@ const AgingChart: React.FC<AgingChartProps> = ({ workItems, filename }) => {
       const age = (new Date().getTime() - d.inProgress.getTime()) / (1000 * 60 * 60 * 24);
       return isNaN(age) ? 0 : age;
     });
+
+    console.log('Calculated ages:', ages);
 
     const maxAge = Math.max(...ages);
 
@@ -161,7 +179,8 @@ const AgingChart: React.FC<AgingChartProps> = ({ workItems, filename }) => {
       .unknown('gray');
 
     statuses.forEach(status => {
-      const statusItems = filteredItems.filter(item => item.status === status);
+      const statusItems = filteredItems.filter(item => item.Status === status);
+      console.log(`Items for status ${status}:`, statusItems);
       
       g.selectAll(`.dot-${status}`)
         .data(statusItems)
@@ -173,17 +192,17 @@ const AgingChart: React.FC<AgingChartProps> = ({ workItems, filename }) => {
           return isNaN(age) ? y(0) : y(age);
         })
         .attr('r', 6)
-        .attr('fill', d => colorScale(d.issueType))
+        .attr('fill', d => colorScale(d['Issue Type']))
         .attr('stroke', '#fff')
         .attr('stroke-width', 1.5)
         .on('mouseover', (event, d) => {
           const age = ((new Date().getTime() - d.inProgress.getTime()) / (1000 * 60 * 60 * 24)).toFixed(1);
           
           tooltip.html(`
-            <strong style="font-size: 14px;">${d.key}</strong><br>
-            <span style="color: #666;">${d.summary.length > 100 ? d.summary.substring(0, 100) + '...' : d.summary}</span><br>
+            <strong style="font-size: 14px;">${d.Key}</strong><br>
+            <span style="color: #666;">${d.Summary.length > 100 ? d.Summary.substring(0, 100) + '...' : d.Summary}</span><br>
             <span style="color: #0066cc; font-weight: bold;">Age: ${age} days</span><br>
-            <span style="color: ${colorScale(d.issueType)};">${d.issueType}</span>
+            <span style="color: ${colorScale(d['Issue Type'])};">${d['Issue Type']}</span>
           `)
           .style('visibility', 'visible');
         })
@@ -215,88 +234,35 @@ const AgingChart: React.FC<AgingChartProps> = ({ workItems, filename }) => {
         .style('fill', 'black')
         .attr('alignment-baseline', 'middle');
     });
-
-    renderIssueTypeSelection();
   };
 
-  const renderIssueTypeSelection = () => {
-    const container = d3.select(chartRef.current!.parentNode as HTMLElement);
-    
-    const checkboxContainer = container.selectAll('.checkbox-container').data([null]);
-    const newCheckboxContainer = checkboxContainer.enter()
-      .append('div')
-      .attr('class', 'checkbox-container')
-      .style('margin-top', '10px');
-
-    const issueTypes = ['Story', 'Bug', 'Task'];
-    const colorScale = d3.scaleOrdinal<string>()
-      .domain(issueTypes)
-      .range(['green', 'red', 'blue']);
-
-    const checkboxes = newCheckboxContainer.merge(checkboxContainer as any).selectAll('.checkbox')
-      .data(issueTypes)
-      .enter()
-      .append('label')
-      .attr('class', 'checkbox')
-      .style('margin-right', '10px')
-      .style('color', d => colorScale(d));
-
-    checkboxes.append('input')
-      .attr('type', 'checkbox')
-      .attr('checked', d => selectedIssueTypes.includes(d) ? true : null)
-      .on('change', function(event, d) {
-        const isChecked = (event.target as HTMLInputElement).checked;
-        let newSelection = [...selectedIssueTypes];
-        
-        if (isChecked) {
-          newSelection.push(d);
-        } else {
-          newSelection = newSelection.filter(type => type !== d);
-        }
-
-        if (newSelection.length === 0) {
-          (event.target as HTMLInputElement).checked = true;
-          return;
-        }
-
-        setSelectedIssueTypes(newSelection);
-      });
-
-    checkboxes.append('span')
-      .text(d => ` ${d}`);
+  const handleIssueTypeChange = (issueType: string) => {
+    setSelectedIssueTypes(prev => 
+      prev.includes(issueType) 
+        ? prev.filter(type => type !== issueType)
+        : [...prev, issueType]
+    );
   };
 
-  const downloadChart = () => {
-    const svg = d3.select(chartRef.current);
-    const svgString = new XMLSerializer().serializeToString(svg.node()!);
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d')!;
-    
-    const scale = 2;
-    canvas.width = 1100 * scale;
-    canvas.height = 620 * scale;
-    ctx.scale(scale, scale);
-
-    const img = new Image();
-    img.onload = () => {
-      ctx.fillStyle = 'white';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(img, 0, 0, 1100, 620);
-      const pngFile = canvas.toDataURL("image/png");
-      const downloadLink = document.createElement("a");
-      downloadLink.download = `AgingWIPChart_${filename.replace('.csv', '')}_${selectedIssueTypes.join('-')}.png`;
-      downloadLink.href = pngFile;
-      downloadLink.click();
-    };
-    img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgString)));
-  };
+  const uniqueIssueTypes = [...new Set(workItems.map(item => item['Issue Type']))];
 
   return (
     <div>
+      <div>
+        {uniqueIssueTypes.map(type => (
+          <label key={type} style={{ marginRight: '10px' }}>
+            <input
+              type="checkbox"
+              checked={selectedIssueTypes.includes(type)}
+              onChange={() => handleIssueTypeChange(type)}
+            />
+            {type}
+          </label>
+        ))}
+      </div>
       <svg ref={chartRef}></svg>
-      <button onClick={downloadChart} style={{marginTop: '10px'}}>Download Chart</button>
     </div>
   );
 };
 
-export default AgingChart;
+export default AgingChartStandalone;

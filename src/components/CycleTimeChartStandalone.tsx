@@ -2,31 +2,56 @@ import React, { useEffect, useRef, useState } from 'react';
 import * as d3 from 'd3';
 import { CycleTimeItem } from '../types/CycleTimeItem';
 
-interface CycleTimeChartProps {
+interface CycleTimeChartStandaloneProps {
   cycleTimeItems: CycleTimeItem[];
   filename: string;
 }
 
-const CycleTimeChart: React.FC<CycleTimeChartProps> = ({ cycleTimeItems, filename }) => {
+const CycleTimeChartStandalone: React.FC<CycleTimeChartStandaloneProps> = ({ cycleTimeItems, filename }) => {
+  console.log('CycleTimeChartStandalone rendered with', cycleTimeItems.length, 'cycle time items');
   const chartRef = useRef<SVGSVGElement | null>(null);
-  const [selectedIssueTypes, setSelectedIssueTypes] = useState<string[]>(['Story', 'Bug', 'Task']);
+  const [selectedIssueTypes, setSelectedIssueTypes] = useState<string[]>(['Story', 'Bug']);
 
   useEffect(() => {
-    if (cycleTimeItems.length === 0) return;
+    console.log('CycleTimeChartStandalone useEffect triggered');
+    console.log('cycleTimeItems:', cycleTimeItems);
+    console.log('filename:', filename);
+    console.log('Unique issue types:', [...new Set(cycleTimeItems.map(item => item['Issue Type']))]);
+
+    if (cycleTimeItems.length === 0) {
+      console.log('No cycle time items to display');
+      return;
+    }
     renderChart();
+
+    return () => {
+      d3.select('body').selectAll('.tooltip').remove();
+    };
+
   }, [cycleTimeItems, filename, selectedIssueTypes]);
 
+  const calculateCycleTime = (inProgress: Date, closed: Date): number => {
+    return Math.max(1, (closed.getTime() - inProgress.getTime()) / (1000 * 60 * 60 * 24));
+  };
+
   const renderChart = () => {
-    const filteredItems = cycleTimeItems.filter(item => 
-      selectedIssueTypes.includes(item.issueType) &&
-      item.cycleTime >= 1 &&
-      !isNaN(item.cycleTime) &&
-      item.inProgress instanceof Date &&
-      item.closed instanceof Date
-    );
+    console.log('Rendering chart');
+    const filteredItems = cycleTimeItems
+      .filter(item => selectedIssueTypes.includes(item['Issue Type']))
+      .map(item => ({
+        ...item,
+        calculatedCycleTime: calculateCycleTime(item.inProgress, item.closed)
+      }));
+    
+    // Debug log for cycle times
+    filteredItems.forEach(item => {
+      console.log(`Item ${item.Key}: inProgress=${item.inProgress}, closed=${item.closed}, cycleTime=${item.cycleTime}, calculatedCycleTime=${item.calculatedCycleTime}`);
+    });
+
+    console.log('Filtered items:', filteredItems);
 
     if (filteredItems.length === 0) {
-      console.log("No valid items to display");
+      console.log('No items to display after filtering');
       return;
     }
 
@@ -39,7 +64,7 @@ const CycleTimeChart: React.FC<CycleTimeChartProps> = ({ cycleTimeItems, filenam
     const svg = d3.select(chartRef.current)
       .attr('width', width + margin.left + margin.right)
       .attr('height', height + margin.top + margin.bottom);
-
+    
     svg.append('rect')
       .attr('width', '100%')
       .attr('height', '100%')
@@ -62,7 +87,7 @@ const CycleTimeChart: React.FC<CycleTimeChartProps> = ({ cycleTimeItems, filenam
       .style('font-size', '20px')
       .style('font-weight', 'bold')
       .style('fill', 'black')
-      .text('Cycle Time Scatterplot');
+      .text('Historical Days To Done');
 
     g.append('text')
       .attr('x', width / 2)
@@ -78,14 +103,14 @@ const CycleTimeChart: React.FC<CycleTimeChartProps> = ({ cycleTimeItems, filenam
       .attr('text-anchor', 'middle')
       .style('font-size', '16px')
       .style('fill', 'black')
-      .text(`Throughput: ${filteredItems.length}`);
+      .text(`Throughput: ${cycleTimeItems.length}`);
 
     const x = d3.scaleTime()
       .domain(d3.extent(filteredItems, d => d.closed) as [Date, Date])
       .range([0, width]);
 
     const y = d3.scaleLinear()
-      .domain([0, d3.max(filteredItems, d => d.cycleTime) as number])
+      .domain([0, d3.max(filteredItems, d => d.calculatedCycleTime) as number])
       .range([height, 0]);
 
     g.append('g')
@@ -119,7 +144,11 @@ const CycleTimeChart: React.FC<CycleTimeChartProps> = ({ cycleTimeItems, filenam
       .text('Cycle Time (days)');
 
     const percentiles = [50, 70, 85, 95];
-    const percentileValues = percentiles.map(p => d3.quantile(filteredItems.map(d => d.cycleTime), p / 100) || 0);
+    const percentileValues = percentiles.map(p => {
+      const sortedCycleTimes = filteredItems.map(d => d.calculatedCycleTime).sort((a, b) => a - b);
+      const index = Math.floor((p / 100) * sortedCycleTimes.length);
+      return sortedCycleTimes[index];
+    });
 
     const percentileColors = ['#0078D4', '#33B563', '#E6B116', '#9A0900'];
     percentileValues.forEach((value, index) => {
@@ -142,6 +171,12 @@ const CycleTimeChart: React.FC<CycleTimeChartProps> = ({ cycleTimeItems, filenam
         .text(`${percentiles[index]}th (${value.toFixed(1)} days)`);
     });
 
+    const colorScale = d3.scaleOrdinal<string>()
+      .domain(['Story', 'Bug', 'Task'])
+      .range(['green', 'red', 'blue'])
+      .unknown('gray');
+
+    // Create tooltip
     const tooltip = d3.select('body').append('div')
       .attr('class', 'tooltip')
       .style('position', 'absolute')
@@ -155,29 +190,26 @@ const CycleTimeChart: React.FC<CycleTimeChartProps> = ({ cycleTimeItems, filenam
       .style('max-width', '250px')
       .style('box-shadow', '0 2px 4px rgba(0,0,0,0.1)');
 
-    const colorScale = d3.scaleOrdinal<string>()
-      .domain(['Story', 'Bug', 'Task'])
-      .range(['green', 'red', 'blue'])
-      .unknown('gray');
-
     g.selectAll('.dot')
       .data(filteredItems)
       .enter().append('circle')
       .attr('class', 'dot')
       .attr('cx', d => x(d.closed))
-      .attr('cy', d => y(d.cycleTime))
+      .attr('cy', d => y(d.calculatedCycleTime))
       .attr('r', 5)
-      .attr('fill', d => colorScale(d.issueType))
+      .attr('fill', d => colorScale(d['Issue Type']))
       .attr('stroke', '#fff')
       .attr('stroke-width', 1.5)
       .on('mouseover', (event, d) => {
         tooltip.html(`
-          <strong style="font-size: 14px;">${d.key}</strong><br>
-          <span style="color: #666;">${d.summary.length > 100 ? d.summary.substring(0, 100) + '...' : d.summary}</span><br>
-          <span style="color: #0066cc; font-weight: bold;">Cycle Time: ${d.cycleTime.toFixed(1)} days</span><br>
-          <span style="color: ${colorScale(d.issueType)};">${d.issueType}</span>
+          <strong style="font-size: 14px;">${d.Key}</strong><br>
+          <span style="color: #666;">${d.Summary.length > 100 ? d.Summary.substring(0, 100) + '...' : d.Summary}</span><br>
+          <span style="color: #0066cc; font-weight: bold;">Cycle Time: ${d.calculatedCycleTime.toFixed(1)} days</span><br>
+          <span style="color: ${colorScale(d['Issue Type'])};">${d['Issue Type']}</span>
         `)
-        .style('visibility', 'visible');
+        .style('visibility', 'visible')
+        .style('top', (event.pageY - 10) + 'px')
+        .style('left', (event.pageX + 10) + 'px');
       })
       .on('mousemove', (event) => {
         tooltip.style('top', (event.pageY - 10) + 'px')
@@ -206,88 +238,35 @@ const CycleTimeChart: React.FC<CycleTimeChartProps> = ({ cycleTimeItems, filenam
         .style('fill', 'black')
         .attr('alignment-baseline', 'middle');
     });
-
-    renderIssueTypeSelection();
   };
 
-  const renderIssueTypeSelection = () => {
-    const container = d3.select(chartRef.current!.parentNode as HTMLElement);
-    
-    const checkboxContainer = container.selectAll('.checkbox-container').data([null]);
-    const newCheckboxContainer = checkboxContainer.enter()
-      .append('div')
-      .attr('class', 'checkbox-container')
-      .style('margin-top', '10px');
-
-    const issueTypes = ['Story', 'Bug', 'Task'];
-    const colorScale = d3.scaleOrdinal<string>()
-      .domain(issueTypes)
-      .range(['green', 'red', 'blue']);
-
-    const checkboxes = newCheckboxContainer.merge(checkboxContainer as any).selectAll('.checkbox')
-      .data(issueTypes)
-      .enter()
-      .append('label')
-      .attr('class', 'checkbox')
-      .style('margin-right', '10px')
-      .style('color', d => colorScale(d));
-
-    checkboxes.append('input')
-      .attr('type', 'checkbox')
-      .attr('checked', d => selectedIssueTypes.includes(d) ? true : null)
-      .on('change', function(event, d) {
-        const isChecked = (event.target as HTMLInputElement).checked;
-        let newSelection = [...selectedIssueTypes];
-        
-        if (isChecked) {
-          newSelection.push(d);
-        } else {
-          newSelection = newSelection.filter(type => type !== d);
-        }
-
-        // Allow at least one type to be selected
-        if (newSelection.length > 0) {
-          setSelectedIssueTypes(newSelection);
-        } else {
-          (event.target as HTMLInputElement).checked = true;
-        }
-      });
-
-    checkboxes.append('span')
-      .text(d => ` ${d}`);
+  const handleIssueTypeChange = (issueType: string) => {
+    setSelectedIssueTypes(prev => 
+      prev.includes(issueType) 
+        ? prev.filter(type => type !== issueType)
+        : [...prev, issueType]
+    );
   };
 
-  const downloadChart = () => {
-    const svg = d3.select(chartRef.current);
-    const svgString = new XMLSerializer().serializeToString(svg.node()!);
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d')!;
-    
-    const scale = 2;
-    canvas.width = 1100 * scale;
-    canvas.height = 620 * scale;
-    ctx.scale(scale, scale);
-
-    const img = new Image();
-    img.onload = () => {
-      ctx.fillStyle = 'white';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(img, 0, 0, 1100, 620);
-      const pngFile = canvas.toDataURL("image/png");
-      const downloadLink = document.createElement("a");
-      downloadLink.download = `CycleTimeScatterplot_${filename.replace('.csv', '')}_${selectedIssueTypes.join('-')}.png`;
-      downloadLink.href = pngFile;
-      downloadLink.click();
-    };
-    img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgString)));
-  };
+  const uniqueIssueTypes = [...new Set(cycleTimeItems.map(item => item['Issue Type']))];
 
   return (
     <div>
+      <div>
+        {uniqueIssueTypes.map(type => (
+          <label key={type} style={{ marginRight: '10px' }}>
+            <input
+              type="checkbox"
+              checked={selectedIssueTypes.includes(type)}
+              onChange={() => handleIssueTypeChange(type)}
+            />
+            {type}
+          </label>
+        ))}
+      </div>
       <svg ref={chartRef}></svg>
-      <button onClick={downloadChart} style={{marginTop: '10px'}}>Download Chart</button>
     </div>
   );
 };
 
-export default CycleTimeChart;
+export default CycleTimeChartStandalone;

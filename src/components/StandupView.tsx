@@ -1,33 +1,49 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { WorkItem } from '../types/WorkItem';
 import { CycleTimeItem } from '../types/CycleTimeItem';
 import AgingChartStandup from './AgingChartStandup';
 import CycleTimeChartStandup from './CycleTimeChartStandup';
-import FileUpload from './FileUpload';
 
 interface StandupViewProps {
-  initialAgingWorkItems: WorkItem[];
-  initialCycleTimeItems: CycleTimeItem[];
-  initialFilename: string;
+  workItems: WorkItem[];
+  cycleTimeItems: CycleTimeItem[];
+  agingFilename: string;
+  cycleTimeFilename: string;
 }
 
-const StandupView: React.FC<StandupViewProps> = ({ initialAgingWorkItems, initialCycleTimeItems, initialFilename }) => {
-  const [agingWorkItems, setAgingWorkItems] = useState<WorkItem[]>(initialAgingWorkItems);
-  const [cycleTimeItems, setCycleTimeItems] = useState<CycleTimeItem[]>(initialCycleTimeItems);
-  const [agingFilename, setAgingFilename] = useState<string>(initialFilename);
-  const [cycleTimeFilename, setCycleTimeFilename] = useState<string>(initialFilename);
+const issueTypeColors = {
+  'Story': 'green',
+  'Bug': 'red',
+  'Task': 'blue'
+};
+
+const StandupView: React.FC<StandupViewProps> = ({ 
+  workItems, 
+  cycleTimeItems, 
+  agingFilename,
+  cycleTimeFilename
+}) => {
+  const [selectedIssueTypes, setSelectedIssueTypes] = useState<string[]>([]);
   const [selectedPercentiles, setSelectedPercentiles] = useState<number[]>([50, 70, 85, 95]);
-  const [selectedIssueTypes, setSelectedIssueTypes] = useState<string[]>(['Story', 'Bug', 'Task']);
-  const [percentileValues, setPercentileValues] = useState<number[]>([]);
 
-  const handleAgingDataLoaded = (items: WorkItem[], name: string) => {
-    setAgingWorkItems(items);
-    setAgingFilename(name);
-  };
+  const allIssueTypes = useMemo(() => {
+    const types = new Set([
+      ...workItems.map(item => item['Issue Type']),
+      ...cycleTimeItems.map(item => item['Issue Type'])
+    ]);
+    return Array.from(types);
+  }, [workItems, cycleTimeItems]);
 
-  const handleCycleTimeDataLoaded = (items: CycleTimeItem[], name: string) => {
-    setCycleTimeItems(items);
-    setCycleTimeFilename(name);
+  useEffect(() => {
+    setSelectedIssueTypes(allIssueTypes);
+  }, [allIssueTypes]);
+
+  const handleIssueTypeChange = (issueType: string) => {
+    setSelectedIssueTypes(prev => 
+      prev.includes(issueType) 
+        ? prev.filter(type => type !== issueType)
+        : [...prev, issueType]
+    );
   };
 
   const handlePercentileChange = (percentile: number) => {
@@ -38,118 +54,88 @@ const StandupView: React.FC<StandupViewProps> = ({ initialAgingWorkItems, initia
     );
   };
 
-  const handleIssueTypeChange = (issueType: string) => {
-    setSelectedIssueTypes(prev => 
-      prev.includes(issueType) 
-        ? prev.filter(type => type !== issueType)
-        : [...prev, issueType]
+  const calculateCycleTime = (inProgress: Date, closed: Date): number => {
+    return Math.max(1, Math.ceil((closed.getTime() - inProgress.getTime()) / (1000 * 60 * 60 * 24)));
+  };
+
+  const cycleTimeItemsWithCalculatedTime = useMemo(() => {
+    return cycleTimeItems.map(item => ({
+      ...item,
+      cycleTime: calculateCycleTime(item.inProgress, item.closed)
+    }));
+  }, [cycleTimeItems]);
+
+  const calculatePercentileValues = (items: CycleTimeItem[]): number[] => {
+    const filteredItems = items.filter(item => 
+      selectedIssueTypes.includes(item['Issue Type']) &&
+      item.cycleTime !== undefined &&
+      item.cycleTime >= 1
     );
+    const cycleTimes = filteredItems.map(item => item.cycleTime!).sort((a, b) => a - b);
+    console.log('Filtered cycle times:', cycleTimes);
+    return selectedPercentiles.map(percentile => {
+      const index = Math.floor((percentile / 100) * cycleTimes.length);
+      return cycleTimes[index] || 0;
+    });
   };
 
-  const calculatePercentileValues = () => {
-    if (cycleTimeItems.length > 0) {
-      const filteredItems = cycleTimeItems.filter(item => selectedIssueTypes.includes(item.issueType));
-      const cycleTimes = filteredItems.map(item => item.cycleTime).sort((a, b) => a - b);
-      return selectedPercentiles.map(percentile => {
-        const index = Math.floor((percentile / 100) * cycleTimes.length);
-        return cycleTimes[index] || 0;
-      });
-    } else if (agingWorkItems.length > 0) {
-      const filteredItems = agingWorkItems.filter(item => selectedIssueTypes.includes(item.issueType));
-      const ages = filteredItems.map(item => {
-        const age = (new Date().getTime() - item.inProgress.getTime()) / (1000 * 60 * 60 * 24);
-        return isNaN(age) ? 0 : age;
-      }).sort((a, b) => a - b);
-      return selectedPercentiles.map(percentile => {
-        const index = Math.floor((percentile / 100) * ages.length);
-        return ages[index] || 0;
-      });
-    }
-    return [];
-  };
+  const percentileValues = useMemo(() => calculatePercentileValues(cycleTimeItemsWithCalculatedTime), [cycleTimeItemsWithCalculatedTime, selectedIssueTypes, selectedPercentiles]);
 
-  useEffect(() => {
-    const newPercentileValues = calculatePercentileValues();
-    setPercentileValues(newPercentileValues);
-  }, [cycleTimeItems, agingWorkItems, selectedIssueTypes, selectedPercentiles]);
+  const filteredWorkItems = workItems.filter(item => selectedIssueTypes.includes(item['Issue Type']));
+
+  console.log('Percentile values:', percentileValues);
 
   return (
     <div style={{ display: 'flex', height: '100vh', padding: '20px' }}>
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-        <div style={{ flex: 2, marginBottom: '20px', border: '1px solid #ccc' }}>
-          <h2>Aging Work In Progress Chart</h2>
+        <div style={{ flex: 3, marginBottom: '20px' }}>
           <AgingChartStandup 
-            workItems={agingWorkItems} 
+            workItems={filteredWorkItems} 
             filename={agingFilename} 
+            selectedIssueTypes={selectedIssueTypes}
             selectedPercentiles={selectedPercentiles}
             percentileValues={percentileValues}
-            selectedIssueTypes={selectedIssueTypes}
+            issueTypeColors={issueTypeColors}
           />
         </div>
-        <div style={{ flex: 1, border: '1px solid #ccc' }}>
-          <h2>Cycle Time Scatterplot</h2>
+        <div style={{ flex: 2 }}>
           <CycleTimeChartStandup 
-            cycleTimeItems={cycleTimeItems} 
+            cycleTimeItems={cycleTimeItemsWithCalculatedTime} 
             filename={cycleTimeFilename}
+            selectedIssueTypes={selectedIssueTypes}
             selectedPercentiles={selectedPercentiles}
             percentileValues={percentileValues}
-            selectedIssueTypes={selectedIssueTypes}
+            issueTypeColors={issueTypeColors}
           />
         </div>
       </div>
-      <div style={{ width: '300px', marginLeft: '20px', border: '1px solid #ccc', padding: '10px' }}>
-        <h2>Control Panel</h2>
-        <div style={{ 
-          display: 'flex', 
-          flexDirection: 'column', 
-          gap: '20px', 
-          border: '1px solid #ddd', 
-          borderRadius: '5px', 
-          padding: '10px' 
-        }}>
-          <section>
-            <h3>Upload Aging WIP CSV</h3>
-            <FileUpload onDataLoaded={(items, name) => handleAgingDataLoaded(items as WorkItem[], name)} />
-          </section>
-          
-          <hr style={{ width: '100%', margin: '10px 0' }} />
-          
-          <section>
-            <h3>Upload Cycle Time CSV</h3>
-            <FileUpload onDataLoaded={(items, name) => handleCycleTimeDataLoaded(items as CycleTimeItem[], name)} />
-          </section>
-          
-          <hr style={{ width: '100%', margin: '10px 0' }} />
-          
-          <section>
-            <h3>Percentile Lines</h3>
-            {[50, 70, 85, 95].map(percentile => (
-              <label key={percentile} style={{ display: 'block' }}>
-                <input
-                  type="checkbox"
-                  checked={selectedPercentiles.includes(percentile)}
-                  onChange={() => handlePercentileChange(percentile)}
-                />
-                {percentile}th
-              </label>
-            ))}
-          </section>
-          
-          <hr style={{ width: '100%', margin: '10px 0' }} />
-          
-          <section>
-            <h3>Issue Types</h3>
-            {['Story', 'Bug', 'Task'].map(type => (
-              <label key={type} style={{ display: 'block' }}>
-                <input
-                  type="checkbox"
-                  checked={selectedIssueTypes.includes(type)}
-                  onChange={() => handleIssueTypeChange(type)}
-                />
-                {type}
-              </label>
-            ))}
-          </section>
+      <div style={{ width: '250px', marginLeft: '20px', padding: '10px', border: '1px solid #ccc' }}>
+        <h3>Control Panel</h3>
+        <div>
+          <h4>Issue Types</h4>
+          {allIssueTypes.map(type => (
+            <label key={type} style={{ display: 'block', marginBottom: '5px', color: issueTypeColors[type as keyof typeof issueTypeColors] || 'black' }}>
+              <input
+                type="checkbox"
+                checked={selectedIssueTypes.includes(type)}
+                onChange={() => handleIssueTypeChange(type)}
+              />
+              {type}
+            </label>
+          ))}
+        </div>
+        <div style={{ marginTop: '20px' }}>
+          <h4>Percentiles</h4>
+          {[50, 70, 85, 95].map(percentile => (
+            <label key={percentile} style={{ display: 'block', marginBottom: '5px' }}>
+              <input
+                type="checkbox"
+                checked={selectedPercentiles.includes(percentile)}
+                onChange={() => handlePercentileChange(percentile)}
+              />
+              {percentile}th
+            </label>
+          ))}
         </div>
       </div>
     </div>
