@@ -41,6 +41,9 @@ const App: React.FC = () => {
 
   return (
     <div>
+      {view !== 'home' && (
+        <button onClick={() => setView('home')}>Back to Home</button>
+      )}
       <HelpComponent />
       {view === 'home' && (
         <Home
